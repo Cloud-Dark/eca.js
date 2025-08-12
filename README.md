@@ -14,6 +14,7 @@ An easy-to-use Node.js library for comprehensive cache management, featuring TTL
 - **Zero Dependencies** - No external libraries required
 - **Cache Tags/Groups** - Organize cache items with tags for group operations
 - **Sliding Expiration** - Extend TTL on access for frequently used items
+- **Stale-While-Revalidate** - Serve stale content while revalidating in background
 - **Enhanced Loader Function** - More flexible data loading with `getOrSet`
 - **Custom Serialization/Deserialization** - Define how data is transformed for storage
 - **Conditional Caching** - Cache items based on custom conditions
@@ -61,6 +62,7 @@ const cache = new EasyCache({
   maxSize: 1000,          // Maximum items in cache (default: 1000)
   defaultTTL: 0,          // Default TTL in ms, 0 = no expiration (default: 0)
   slidingTTL: false,      // Extend TTL on access (default: false)
+  staleWhileRevalidate: false, // Return stale value while revalidating (default: false)
   checkInterval: 60000,   // Interval for cleaning up expired items (default: 60000)
   enableStats: true,      // Enable statistics (default: true)
   serialize: JSON.stringify, // Custom serialization function (default: JSON.stringify)
@@ -334,6 +336,11 @@ cache.on('clear', () => {
 
 cache.on('cleanup', (count) => {
   console.log(`Cleaned up ${count} expired items`);
+});
+
+cache.on('revalidate', (key, staleValue) => {
+  console.log(`Revalidating key: ${key}. Stale value:`, staleValue);
+  // Your revalidation logic here, e.g., fetch new data and cache it
 });
 
 cache.on('error', (error) => {

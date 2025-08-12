@@ -13,6 +13,7 @@ class EasyCache extends EventEmitter {
       slidingTTL: options.slidingTTL || false, // Extend TTL on access
       checkInterval: options.checkInterval || 60000, // 60 seconds
       enableStats: options.enableStats !== false,
+      staleWhileRevalidate: options.staleWhileRevalidate || false,
       storage: options.storage || 'memory',
       storageOptions: options.storageOptions || {},
       serialize: options.serialize || JSON.stringify,
@@ -168,7 +169,9 @@ class EasyCache extends EventEmitter {
       // Set expiration timer if needed
       if (effectiveTTL > 0) {
         const timer = setTimeout(async () => {
-          await this.delete(key);
+          if (!this.options.staleWhileRevalidate) { // Only delete if not stale-while-revalidate
+            await this.delete(key);
+          }
           if (this.options.enableStats) {
             this.stats.totalExpired++;
           }
@@ -212,6 +215,16 @@ class EasyCache extends EventEmitter {
 
       // Check if expired
       if (item.expiresAt && Date.now() > item.expiresAt) {
+        // If stale-while-revalidate is enabled
+        if (this.options.staleWhileRevalidate) {
+          const rawStaleValue = await this.storage.get(key);
+          if (rawStaleValue !== undefined) {
+            const staleValue = this.options.deserialize(rawStaleValue);
+            this.emit('revalidate', key, staleValue);
+            return staleValue;
+          }
+        }
+        // If not stale-while-revalidate, or stale value not found, then delete
         await this.delete(key);
         if (this.options.enableStats) {
           this.stats.misses++;

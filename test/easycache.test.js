@@ -122,6 +122,28 @@ async function runTests() {
   assert(typeof info.ttl === 'number', 'Info contains TTL');
   cache8.destroy();
   
+  // Test 8.1: Stale-While-Revalidate
+  console.log('\nTest 8.1: Stale-While-Revalidate');
+  const swrCache = new EasyCache({
+    defaultTTL: 100, // Expires quickly
+    staleWhileRevalidate: true
+  });
+  let revalidateEventFired = false;
+  swrCache.on('revalidate', (key, staleValue) => {
+    revalidateEventFired = true;
+    console.log('Revalidate event fired. key:', key, 'staleValue:', staleValue);
+    assert(key === 'swr_test', 'Revalidate event key is correct');
+    assert(JSON.stringify(staleValue) === JSON.stringify({ data: 'stale_value' }), 'Revalidate event stale value is correct');
+  });
+
+    await swrCache.set('swr_test', { data: 'stale_value' });
+  await new Promise(resolve => setTimeout(resolve, 150)); // Let it expire
+
+  const retrievedStaleValue = await swrCache.get('swr_test');
+  assert(JSON.stringify(retrievedStaleValue) === JSON.stringify({ data: 'stale_value' }), 'Stale value is returned immediately');
+  assert(revalidateEventFired === true, 'Revalidate event is fired');
+  swrCache.destroy();
+  
   // Test 9: Events
   console.log('\nTest 9: Event System');
   const cache9 = new EasyCache();

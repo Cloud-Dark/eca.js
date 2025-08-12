@@ -33,8 +33,8 @@
   },
   "homepage": "https://github.com/Cloud-Dark/eca.js#readme",
   "devDependencies": {
-    "mocha": "^10.0.0",
-    "chai": "^4.3.0"
+    "chai": "^4.3.0",
+    "mocha": "^10.0.0"
   },
   "files": [
     "src/",
@@ -42,5 +42,9 @@
     "test/",
     "README.md",
     "LICENSE"
-  ]
+  ],
+  "dependencies": {
+    "pg": "^8.16.3",
+    "redis": "^5.8.0"
+  }
 }

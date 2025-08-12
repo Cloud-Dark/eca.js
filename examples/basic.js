@@ -44,6 +44,16 @@ cache.on('expired:config', (value) => {
   console.log(`Key-specific expired event for config. Value:`, value);
 });
 
+cache.on('revalidate', async (key, staleValue) => {
+  console.log(`
+🔄 Revalidating ${key}. Stale value:`, staleValue);
+  // Simulate fetching new data
+  await new Promise(resolve => setTimeout(resolve, 1500));
+  const newValue = { ...staleValue, revalidated: true, timestamp: new Date().toISOString() };
+  await cache.set(key, newValue, 5000); // Re-cache with new TTL
+  console.log(`✅ Revalidation complete for ${key}. New value:`, newValue);
+});
+
 // 3. Advanced Features
 console.log('\n=== Advanced Features ===');
 
