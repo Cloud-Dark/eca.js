@@ -283,6 +283,7 @@ class EasyCache extends EventEmitter {
       let value = null;
       
       if (existed) {
+        const item = this.cache.get(key); // Define item here
         // Get value before deleting for event
         try {
           value = await this.storage.get(key);
