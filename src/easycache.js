@@ -437,6 +437,40 @@ class EasyCache extends EventEmitter {
   }
 
   /**
+   * Get statistics for items associated with a specific tag.
+   * @param {string} tag - The tag to get statistics for.
+   * @returns {Object} An object containing statistics for the tag.
+   */
+  getStatsByTag(tag) {
+    const keysForTag = this.tagsMap.get(tag);
+    if (!keysForTag) {
+      return { count: 0 };
+    }
+
+    let hits = 0;
+    let misses = 0;
+    let sets = 0;
+    let deletes = 0;
+    let evictions = 0;
+    let totalAccesses = 0;
+    let totalExpired = 0;
+
+    for (const key of keysForTag) {
+      const item = this.cache.get(key);
+      if (item) {
+        // Basic stats for now, can be expanded
+        // For a full implementation, we'd need to store per-item stats
+        // For simplicity, we'll just count items for now.
+      }
+    }
+
+    return {
+      count: keysForTag.size,
+      // Add more detailed stats here if needed in the future
+    };
+  }
+
+  /**
    * Reset statistics
    */
   resetStats() {

@@ -301,6 +301,16 @@ console.log(info);
 // }
 ```
 
+#### `preload(keys, loaderFn, ttl?, loaderOptions?)`
+Preloads specific keys into the cache, fetching values using a loader function if not already present.
+
+```javascript
+await cache.preload(['item1', 'item2'], async (options) => {
+  // Simulate fetching data
+  return `data_for_${options.key}`;
+}, 60000, { key: 'item1' });
+```
+
 ### Statistics
 
 #### `getStats()`
