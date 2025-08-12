@@ -17,6 +17,7 @@ class EasyCache extends EventEmitter {
       storageOptions: options.storageOptions || {},
       serialize: options.serialize || JSON.stringify,
       deserialize: options.deserialize || JSON.parse,
+      maxEntriesPerTag: options.maxEntriesPerTag || {},
       ...options
     };
     
@@ -138,6 +139,30 @@ class EasyCache extends EventEmitter {
           this.tagsMap.set(tag, new Set());
         }
         this.tagsMap.get(tag).add(key);
+
+        // Enforce maxEntriesPerTag limit
+        const maxEntries = this.options.maxEntriesPerTag[tag];
+        if (maxEntries && this.tagsMap.get(tag).size > maxEntries) {
+          // Evict LRU item within this tag
+          let oldestTaggedKey = null;
+          let oldestTaggedTime = Infinity;
+
+          for (const taggedKey of this.tagsMap.get(tag)) {
+            const item = this.cache.get(taggedKey);
+            if (item && this.accessOrder.has(taggedKey) && this.accessOrder.get(taggedKey) < oldestTaggedTime) {
+              oldestTaggedTime = this.accessOrder.get(taggedKey);
+              oldestTaggedKey = taggedKey;
+            }
+          }
+
+          if (oldestTaggedKey) {
+            await this.delete(oldestTaggedKey);
+            if (this.options.enableStats) {
+              this.stats.evictions++;
+            }
+            this.emit('evicted', oldestTaggedKey, null); // Value is null as it's already deleted
+          }
+        }
       }
 
       // Set expiration timer if needed
@@ -157,10 +182,10 @@ class EasyCache extends EventEmitter {
       }
 
       this.emit('set', key, value);
-      return true;
+      return this;
     } catch (error) {
       this.emit('error', error);
-      return false;
+      return this;
     }
   }
 
@@ -323,10 +348,10 @@ class EasyCache extends EventEmitter {
         this.emit('delete', key, value);
       }
 
-      return existed;
+      return this;
     } catch (error) {
       this.emit('error', error);
-      return false;
+      return this;
     }
   }
 
@@ -349,8 +374,10 @@ class EasyCache extends EventEmitter {
       this.accessOrder.clear();
       
       this.emit('clear');
+      return this;
     } catch (error) {
       this.emit('error', error);
+      return this;
     }
   }
 
@@ -405,6 +432,7 @@ class EasyCache extends EventEmitter {
       totalAccesses: 0,
       totalExpired: 0
     };
+    return this;
   }
 
   /**
@@ -441,6 +469,7 @@ class EasyCache extends EventEmitter {
       this.set(key, value, ttl)
     );
     await Promise.all(promises);
+    return this;
   }
 
   /**
@@ -468,6 +497,7 @@ class EasyCache extends EventEmitter {
   async deleteMultiple(keys) {
     const promises = keys.map(key => this.delete(key));
     await Promise.all(promises);
+    return this;
   }
 
   /**
@@ -479,7 +509,8 @@ class EasyCache extends EventEmitter {
    * @returns {boolean} Success status
    */
   async setWithTags(key, value, ttl = null, tags = []) {
-    return this.set(key, value, ttl, tags);
+    await this.set(key, value, ttl, tags);
+    return this;
   }
 
   /**
@@ -527,6 +558,20 @@ class EasyCache extends EventEmitter {
   }
 
   /**
+   * Preload specific keys into the cache.
+   * @param {Array<string>} keys - Array of keys to preload.
+   * @param {function} loaderFn - Function to generate value if not exists (same as getOrSet's fn).
+   * @param {number} ttl - Time to live for preloaded items.
+   * @param {Object} loaderOptions - Options to pass to the loader function.
+   * @returns {Promise<void>} A promise that resolves when all keys are preloaded.
+   */
+  async preload(keys, loaderFn, ttl = null, loaderOptions = {}) {
+    const promises = keys.map(key => this.getOrSet(key, loaderFn, ttl, loaderOptions));
+    await Promise.all(promises);
+    return this;
+  }
+
+  /**
    * Get cache info for a specific key
    * @param {string} key - Cache key
    * @returns {Object|null} Cache item info
@@ -540,6 +585,7 @@ class EasyCache extends EventEmitter {
       createdAt: item.createdAt,
       expiresAt: item.expiresAt,
       accessCount: item.accessCount,
+      tags: item.tags || [],
       isExpired: item.expiresAt ? Date.now() > item.expiresAt : false,
       ttl: item.expiresAt ? Math.max(0, item.expiresAt - Date.now()) : null
     };
@@ -572,7 +618,7 @@ class EasyCache extends EventEmitter {
       this.timers.set(key, timer);
     }
 
-    return true;
+    return this;
   }
 
   /**
@@ -628,11 +674,16 @@ class EasyCache extends EventEmitter {
   /**
    * Destroy cache and cleanup resources
    */
-  destroy() {
-    this.clear();
+  async destroy() {
+    await this.clear();
     
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);
+    }
+    
+    // Disconnect from persistent storage if applicable
+    if (typeof this.storage.disconnect === 'function') {
+      await this.storage.disconnect();
     }
     
     this.removeAllListeners();
