@@ -35,6 +35,15 @@ cache.on('evicted', (key, value) => {
   console.log(`🗑️ Evicted: ${key}`);
 });
 
+// Listen for key-specific events
+cache.on('set:user:123', (value) => {
+  console.log(`Key-specific set event for user:123. Value:`, value);
+});
+
+cache.on('expired:config', (value) => {
+  console.log(`Key-specific expired event for config. Value:`, value);
+});
+
 // 3. Advanced Features
 console.log('\n=== Advanced Features ===');
 

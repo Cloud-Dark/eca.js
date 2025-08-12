@@ -305,6 +305,8 @@ cache.resetStats();
 
 Cache emits various events that can be listened to:
 
+In addition to global events, key-specific events are also emitted (e.g., `set:myKey`, `expired:anotherKey`).
+
 ```javascript
 cache.on('set', (key, value) => {
   console.log(`Set: ${key}`);

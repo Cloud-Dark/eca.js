@@ -173,6 +173,7 @@ class EasyCache extends EventEmitter {
             this.stats.totalExpired++;
           }
           this.emit('expired', key, value);
+          this.emit(`expired:${key}`, value);
         }, effectiveTTL);
         this.timers.set(key, timer);
       }
@@ -182,6 +183,7 @@ class EasyCache extends EventEmitter {
       }
 
       this.emit('set', key, value);
+      this.emit(`set:${key}`, value);
       return this;
     } catch (error) {
       this.emit('error', error);
@@ -257,6 +259,7 @@ class EasyCache extends EventEmitter {
       }
 
       this.emit('get', key, value);
+      this.emit(`get:${key}`, value);
       return value;
     } catch (error) {
       this.emit('error', error);
@@ -346,6 +349,7 @@ class EasyCache extends EventEmitter {
         }
 
         this.emit('delete', key, value);
+        this.emit(`delete:${key}`, value);
       }
 
       return this;
@@ -614,6 +618,7 @@ class EasyCache extends EventEmitter {
       const timer = setTimeout(() => {
         this.delete(key);
         this.emit('expired', key, item.value);
+        this.emit(`expired:${key}`, item.value);
       }, ttl);
       this.timers.set(key, timer);
     }
@@ -643,6 +648,7 @@ class EasyCache extends EventEmitter {
       this.delete(oldestKey);
       this.stats.evictions++;
       this.emit('evicted', oldestKey, item?.value);
+      this.emit(`evicted:${oldestKey}`, item?.value);
     }
   }
 

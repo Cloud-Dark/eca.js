@@ -126,15 +126,21 @@ async function runTests() {
   console.log('\nTest 9: Event System');
   const cache9 = new EasyCache();
   let eventFired = false;
+  let keySpecificSetEventFired = false;
   
   cache9.on('set', (key, value) => {
     if (key === 'event_test') {
       eventFired = true;
     }
   });
+
+  cache9.on('set:event_test', (value) => {
+    keySpecificSetEventFired = true;
+  });
   
   await cache9.set('event_test', 'value');
   assert(eventFired === true, 'Events are fired correctly');
+  assert(keySpecificSetEventFired === true, 'Key-specific set events are fired correctly');
   cache9.destroy();
   
   // Test 10: Utility Functions
