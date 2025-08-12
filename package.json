@@ -1,6 +1,6 @@
 {
   "name": "eca.js",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "An easy-to-use Node.js library for cache management with TTL, LRU eviction, and event system.",
   "main": "src/easycache.js",
   "scripts": {
