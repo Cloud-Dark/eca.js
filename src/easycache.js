@@ -10,10 +10,13 @@ class EasyCache extends EventEmitter {
     this.options = {
       maxSize: options.maxSize || 1000,
       defaultTTL: options.defaultTTL || 0, // 0 = no expiration
+      slidingTTL: options.slidingTTL || false, // Extend TTL on access
       checkInterval: options.checkInterval || 60000, // 60 seconds
       enableStats: options.enableStats !== false,
       storage: options.storage || 'memory',
       storageOptions: options.storageOptions || {},
+      serialize: options.serialize || JSON.stringify,
+      deserialize: options.deserialize || JSON.parse,
       ...options
     };
     
@@ -23,12 +26,15 @@ class EasyCache extends EventEmitter {
     this.cache = new Map(); // Memory layer for TTL and metadata
     this.timers = new Map();
     this.accessOrder = new Map(); // for LRU
+    this.tagsMap = new Map(); // Map to store tags and their associated keys
     this.stats = {
       hits: 0,
       misses: 0,
       sets: 0,
       deletes: 0,
-      evictions: 0
+      evictions: 0,
+      totalAccesses: 0,
+      totalExpired: 0
     };
     
     // Start cleanup interval
@@ -76,8 +82,27 @@ class EasyCache extends EventEmitter {
    * @param {number} ttl - Time to live in milliseconds
    * @returns {boolean} Success status
    */
-  async set(key, value, ttl = null) {
+  async set(key, value, ttl = null, tags = [], condition = null) {
     try {
+      // If a condition function is provided, evaluate it
+      if (typeof condition === 'function' && !condition(key, value)) {
+        return false; // Do not cache if condition is false
+      }
+
+      // If item already exists, remove its old tags from tagsMap
+      const existingItem = this.cache.get(key);
+      if (existingItem && existingItem.tags && existingItem.tags.length > 0) {
+        for (const tag of existingItem.tags) {
+          const keysForTag = this.tagsMap.get(tag);
+          if (keysForTag) {
+            keysForTag.delete(key);
+            if (keysForTag.size === 0) {
+              this.tagsMap.delete(tag);
+            }
+          }
+        }
+      }
+
       // Check if we need to evict items (LRU)
       if (this.cache.size >= this.options.maxSize && !this.cache.has(key)) {
         await this._evictLRU();
@@ -94,22 +119,34 @@ class EasyCache extends EventEmitter {
       const expiresAt = effectiveTTL > 0 ? Date.now() + effectiveTTL : null;
 
       // Store value in external storage
-      await this.storage.set(key, value);
+      await this.storage.set(key, this.options.serialize(value));
 
       // Store metadata in memory
       const cacheItem = {
         createdAt: Date.now(),
         expiresAt,
-        accessCount: 0
+        accessCount: 0,
+        tags: Array.isArray(tags) ? tags : [] // Ensure tags is an array
       };
 
       this.cache.set(key, cacheItem);
       this.accessOrder.set(key, Date.now());
 
+      // Update tagsMap
+      for (const tag of cacheItem.tags) {
+        if (!this.tagsMap.has(tag)) {
+          this.tagsMap.set(tag, new Set());
+        }
+        this.tagsMap.get(tag).add(key);
+      }
+
       // Set expiration timer if needed
       if (effectiveTTL > 0) {
         const timer = setTimeout(async () => {
           await this.delete(key);
+          if (this.options.enableStats) {
+            this.stats.totalExpired++;
+          }
           this.emit('expired', key, value);
         }, effectiveTTL);
         this.timers.set(key, timer);
@@ -133,6 +170,9 @@ class EasyCache extends EventEmitter {
    * @returns {*} Cache value or undefined
    */
   async get(key) {
+    if (this.options.enableStats) {
+      this.stats.totalAccesses++;
+    }
     try {
       const item = this.cache.get(key);
       
@@ -153,7 +193,10 @@ class EasyCache extends EventEmitter {
       }
 
       // Get value from storage
-      const value = await this.storage.get(key);
+      let value = await this.storage.get(key);
+      if (value !== undefined) {
+        value = this.options.deserialize(value);
+      }
       if (value === undefined) {
         // Storage inconsistency, remove from memory cache
         this.cache.delete(key);
@@ -167,6 +210,22 @@ class EasyCache extends EventEmitter {
       // Update access info for LRU
       item.accessCount++;
       this.accessOrder.set(key, Date.now());
+
+      // If sliding TTL is enabled, extend the TTL on access
+      if (this.options.slidingTTL && item.expiresAt) {
+        const currentTTL = item.expiresAt - item.createdAt;
+        item.expiresAt = Date.now() + currentTTL;
+        
+        // Clear and reset the timer
+        if (this.timers.has(key)) {
+          clearTimeout(this.timers.get(key));
+        }
+        const timer = setTimeout(async () => {
+          await this.delete(key);
+          this.emit('expired', key, value);
+        }, currentTTL);
+        this.timers.set(key, timer);
+      }
 
       if (this.options.enableStats) {
         this.stats.hits++;
@@ -237,6 +296,19 @@ class EasyCache extends EventEmitter {
         // Remove from memory
         this.cache.delete(key);
         this.accessOrder.delete(key);
+        
+        // Remove from tagsMap
+        if (item.tags && item.tags.length > 0) {
+          for (const tag of item.tags) {
+            const keysForTag = this.tagsMap.get(tag);
+            if (keysForTag) {
+              keysForTag.delete(key);
+              if (keysForTag.size === 0) {
+                this.tagsMap.delete(tag);
+              }
+            }
+          }
+        }
         
         if (this.timers.has(key)) {
           clearTimeout(this.timers.get(key));
@@ -313,7 +385,9 @@ class EasyCache extends EventEmitter {
     return {
       ...this.stats,
       size: this.cache.size,
-      hitRate: this.stats.hits / (this.stats.hits + this.stats.misses) || 0
+      hitRate: this.stats.hits / (this.stats.hits + this.stats.misses) || 0,
+      totalAccesses: this.stats.totalAccesses,
+      totalExpired: this.stats.totalExpired
     };
   }
 
@@ -326,7 +400,9 @@ class EasyCache extends EventEmitter {
       misses: 0,
       sets: 0,
       deletes: 0,
-      evictions: 0
+      evictions: 0,
+      totalAccesses: 0,
+      totalExpired: 0
     };
   }
 
@@ -335,14 +411,15 @@ class EasyCache extends EventEmitter {
    * @param {string} key - Cache key
    * @param {function} fn - Function to generate value if not exists
    * @param {number} ttl - Time to live
+   * @param {Object} loaderOptions - Options to pass to the loader function
    * @returns {*} Cache value
    */
-  async getOrSet(key, fn, ttl = null) {
+  async getOrSet(key, fn, ttl = null, loaderOptions = {}) {
     try {
       let value = await this.get(key);
       
       if (value === undefined) {
-        value = await fn();
+        value = await fn(loaderOptions);
         await this.set(key, value, ttl);
       }
       
@@ -390,6 +467,62 @@ class EasyCache extends EventEmitter {
   async deleteMultiple(keys) {
     const promises = keys.map(key => this.delete(key));
     await Promise.all(promises);
+  }
+
+  /**
+   * Set cache value with associated tags
+   * @param {string} key - Cache key
+   * @param {*} value - Cache value
+   * @param {number} ttl - Time to live in milliseconds
+   * @param {Array<string>} tags - Array of tags for the cache item
+   * @returns {boolean} Success status
+   */
+  async setWithTags(key, value, ttl = null, tags = []) {
+    return this.set(key, value, ttl, tags);
+  }
+
+  /**
+   * Get all cache items associated with a specific tag
+   * @param {string} tag - The tag to retrieve items for
+   * @returns {Object} An object containing key-value pairs for the tag
+   */
+  async getByTag(tag) {
+    const keysForTag = this.tagsMap.get(tag);
+    if (!keysForTag) {
+      return {};
+    }
+    const result = {};
+    for (const key of keysForTag) {
+      const value = await this.get(key);
+      if (value !== undefined) {
+        result[key] = value;
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Delete all cache items associated with a specific tag
+   * @param {string} tag - The tag to delete items for
+   * @returns {boolean} True if any items were deleted, false otherwise
+   */
+  async deleteByTag(tag) {
+    const keysForTag = this.tagsMap.get(tag);
+    if (!keysForTag) {
+      return false;
+    }
+    const keysToDelete = Array.from(keysForTag);
+    await this.deleteMultiple(keysToDelete);
+    return keysToDelete.length > 0;
+  }
+
+  /**
+   * Clear all cache items associated with a specific tag
+   * @param {string} tag - The tag to clear items for
+   * @returns {boolean} True if any items were cleared, false otherwise
+   */
+  async clearByTag(tag) {
+    return this.deleteByTag(tag);
   }
 
   /**
@@ -481,6 +614,9 @@ class EasyCache extends EventEmitter {
 
     for (const key of expiredKeys) {
       this.delete(key);
+      if (this.options.enableStats) {
+        this.stats.totalExpired++;
+      }
     }
 
     if (expiredKeys.length > 0) {
