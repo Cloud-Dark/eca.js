@@ -12,6 +12,11 @@ An easy-to-use Node.js library for comprehensive cache management, featuring TTL
 - **Memory Management** - Control maximum cache size
 - **Utility Functions** - Helpers for time parsing and formatting
 - **Zero Dependencies** - No external libraries required
+- **Cache Tags/Groups** - Organize cache items with tags for group operations
+- **Sliding Expiration** - Extend TTL on access for frequently used items
+- **Enhanced Loader Function** - More flexible data loading with `getOrSet`
+- **Custom Serialization/Deserialization** - Define how data is transformed for storage
+- **Conditional Caching** - Cache items based on custom conditions
 
 ## 📦 Installation
 
@@ -49,12 +54,17 @@ cache.set('temp:data', 'temporary data', 10000); // Expires in 10 seconds
 
 ### Constructor Options
 
+### Constructor Options
+
 ```javascript
 const cache = new EasyCache({
   maxSize: 1000,          // Maximum items in cache (default: 1000)
   defaultTTL: 0,          // Default TTL in ms, 0 = no expiration (default: 0)
+  slidingTTL: false,      // Extend TTL on access (default: false)
   checkInterval: 60000,   // Interval for cleaning up expired items (default: 60000)
-  enableStats: true       // Enable statistics (default: true)
+  enableStats: true,      // Enable statistics (default: true)
+  serialize: JSON.stringify, // Custom serialization function (default: JSON.stringify)
+  deserialize: JSON.parse  // Custom deserialization function (default: JSON.parse)
 });
 ```
 
@@ -112,59 +122,7 @@ Gets all keys in the cache.
 console.log('All keys:', cache.keys());
 ```
 
-### Basic Methods
 
-#### `set(key, value, ttl?)`
-Set nilai ke cache dengan optional TTL.
-
-```javascript
-cache.set('key', 'value');
-cache.set('key', 'value', 5000); // Expired dalam 5 second
-```
-
-#### `get(key)`
-Ambil nilai dari cache.
-
-```javascript
-const value = cache.get('key');
-```
-
-#### `has(key)`
-Cek apakah key exists di cache.
-
-```javascript
-if (cache.has('key')) {
-  console.log('Key exists');
-}
-```
-
-#### `delete(key)`
-Hapus key dari cache.
-
-```javascript
-cache.delete('key');
-```
-
-#### `clear()`
-Hapus semua items dari cache.
-
-```javascript
-cache.clear();
-```
-
-#### `size()`
-Dapatkan jumlah items di cache.
-
-```javascript
-console.log('Cache size:', cache.size());
-```
-
-#### `keys()`
-Dapatkan semua keys di cache.
-
-```javascript
-console.log('All keys:', cache.keys());
-```
 
 ### Advanced Methods
 
@@ -293,23 +251,7 @@ cache.on('error', (error) => {
 
 ### Utility Functions
 
-#### `EasyCache.utils.parseTime(timeStr)`
-Parses a time string into milliseconds.
 
-```javascript
-const oneHour = EasyCache.utils.parseTime('1h');     // 3600000
-const thirtyMin = EasyCache.utils.parseTime('30m');  // 1800000
-const fiveSeconds = EasyCache.utils.parseTime('5s'); // 5000
-```
-
-Supported units: `ms`, `s`, `m`, `h`, `d`
-
-#### `EasyCache.utils.formatBytes(bytes)`
-Formats bytes into a human-readable string.
-
-```javascript
-const formatted = EasyCache.utils.formatBytes(1024); // "1.00 KB"
-```
 
 ## 💡 Examples
 
