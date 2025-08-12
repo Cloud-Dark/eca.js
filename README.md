@@ -1,45 +1,49 @@
 # EasyCache
 
-Library Node.js yang mudah digunakan untuk manajemen cache dengan fitur lengkap seperti TTL (Time To Live), LRU eviction, event system, dan statistik cache.
+An easy-to-use Node.js library for comprehensive cache management, featuring TTL (Time To Live), LRU eviction, an event system, and cache statistics.
 
-## ✨ Fitur Utama
+## ✨ Key Features
 
-- **TTL (Time To Live)** - Cache dengan waktu expired otomatis
-- **LRU Eviction** - Otomatis hapus item yang paling jarang digunakan
-- **Event System** - Listen untuk event cache seperti set, get, expired, dll
-- **Statistik** - Track hit rate, miss rate, dan metrics lainnya
-- **Multiple Operations** - Set/get multiple keys sekaligus
-- **Memory Management** - Kontrol maksimal ukuran cache
-- **Utility Functions** - Helper untuk parsing time dan formatting
-- **Zero Dependencies** - Tidak memerlukan library eksternal
+- **TTL (Time To Live)** - Cache with automatic expiration
+- **LRU Eviction** - Automatically remove least recently used items
+- **Event System** - Listen for cache events like set, get, expired, etc.
+- **Statistics** - Track hit rate, miss rate, and other metrics
+- **Multiple Operations** - Set/get multiple keys at once
+- **Memory Management** - Control maximum cache size
+- **Utility Functions** - Helpers for time parsing and formatting
+- **Zero Dependencies** - No external libraries required
 
-## 📦 Instalasi
+## 📦 Installation
 
 ```bash
-npm install easy-cache-js
+npm install eca.js
 ```
 
 ## 🚀 Quick Start
 
 ```javascript
-const EasyCache = require('easy-cache-js');
+const EasyCache = require('eca.js');
 
-// Buat instance cache
+// Create a cache instance
 const cache = new EasyCache({
-  maxSize: 1000,        // Maksimal 1000 items
-  defaultTTL: 300000    // Default 5 menit TTL
+  maxSize: 1000,        // Maximum 1000 items
+  defaultTTL: 300000    // Default 5 minutes TTL
 });
 
-// Set nilai
+// Set a value
 cache.set('user:123', { name: 'John', email: 'john@example.com' });
 
-// Get nilai
+// Get a value
 const user = cache.get('user:123');
 console.log(user); // { name: 'John', email: 'john@example.com' }
 
-// Set dengan TTL custom
-cache.set('temp:data', 'temporary data', 10000); // Expired dalam 10 second
+// Set with custom TTL
+cache.set('temp:data', 'temporary data', 10000); // Expires in 10 seconds
 ```
+
+## 📖 API Documentation
+
+### Constructor Options
 
 ## 📖 API Documentation
 
@@ -47,11 +51,65 @@ cache.set('temp:data', 'temporary data', 10000); // Expired dalam 10 second
 
 ```javascript
 const cache = new EasyCache({
-  maxSize: 1000,          // Maksimal items di cache (default: 1000)
-  defaultTTL: 0,          // Default TTL dalam ms, 0 = tidak expired (default: 0)
-  checkInterval: 60000,   // Interval cleanup expired items (default: 60000)
-  enableStats: true       // Enable statistik (default: true)
+  maxSize: 1000,          // Maximum items in cache (default: 1000)
+  defaultTTL: 0,          // Default TTL in ms, 0 = no expiration (default: 0)
+  checkInterval: 60000,   // Interval for cleaning up expired items (default: 60000)
+  enableStats: true       // Enable statistics (default: true)
 });
+```
+
+### Basic Methods
+
+#### `set(key, value, ttl?)`
+Sets a value to the cache with an optional TTL.
+
+```javascript
+cache.set('key', 'value');
+cache.set('key', 'value', 5000); // Expires in 5 seconds
+```
+
+#### `get(key)`
+Retrieves a value from the cache.
+
+```javascript
+const value = cache.get('key');
+```
+
+#### `has(key)`
+Checks if a key exists in the cache.
+
+```javascript
+if (cache.has('key')) {
+  console.log('Key exists');
+}
+```
+
+#### `delete(key)`
+Deletes a key from the cache.
+
+```javascript
+cache.delete('key');
+```
+
+#### `clear()`
+Clears all items from the cache.
+
+```javascript
+cache.clear();
+```
+
+#### `size()`
+Gets the number of items in the cache.
+
+```javascript
+console.log('Cache size:', cache.size());
+```
+
+#### `keys()`
+Gets all keys in the cache.
+
+```javascript
+console.log('All keys:', cache.keys());
 ```
 
 ### Basic Methods
@@ -111,17 +169,17 @@ console.log('All keys:', cache.keys());
 ### Advanced Methods
 
 #### `getOrSet(key, fn, ttl?)`
-Get value atau set dengan function jika tidak ada.
+Gets a value or sets it with a function if it doesn't exist.
 
 ```javascript
 const userData = await cache.getOrSet('user:123', async () => {
-  // Fetch dari database jika tidak ada di cache
+  // Fetch from database if not in cache
   return await fetchUserFromDB(123);
-}, 300000); // Cache selama 5 menit
+}, 300000); // Cache for 5 minutes
 ```
 
 #### `setMultiple(items, ttl?)`
-Set multiple values sekaligus.
+Sets multiple values at once.
 
 ```javascript
 cache.setMultiple({
@@ -131,28 +189,28 @@ cache.setMultiple({
 ```
 
 #### `getMultiple(keys)`
-Get multiple values sekaligus.
+Gets multiple values at once.
 
 ```javascript
 const users = cache.getMultiple(['user:1', 'user:2']);
 ```
 
 #### `deleteMultiple(keys)`
-Delete multiple keys sekaligus.
+Deletes multiple keys at once.
 
 ```javascript
 cache.deleteMultiple(['user:1', 'user:2']);
 ```
 
 #### `touch(key, ttl)`
-Update TTL untuk key yang sudah ada.
+Updates the TTL for an existing key.
 
 ```javascript
-cache.touch('user:123', 600000); // Extend TTL to 10 menit
+cache.touch('user:123', 600000); // Extend TTL to 10 minutes
 ```
 
 #### `getInfo(key)`
-Dapatkan informasi detail untuk key.
+Gets detailed information for a key.
 
 ```javascript
 const info = cache.getInfo('user:123');
@@ -170,7 +228,7 @@ console.log(info);
 ### Statistics
 
 #### `getStats()`
-Dapatkan statistik cache.
+Gets cache statistics.
 
 ```javascript
 const stats = cache.getStats();
@@ -187,7 +245,7 @@ console.log(stats);
 ```
 
 #### `resetStats()`
-Reset semua statistik.
+Resets all statistics.
 
 ```javascript
 cache.resetStats();
@@ -195,7 +253,7 @@ cache.resetStats();
 
 ### Events
 
-Cache emit berbagai events yang bisa di-listen:
+Cache emits various events that can be listened to:
 
 ```javascript
 cache.on('set', (key, value) => {
@@ -233,8 +291,10 @@ cache.on('error', (error) => {
 
 ### Utility Functions
 
+### Utility Functions
+
 #### `EasyCache.utils.parseTime(timeStr)`
-Parse time string ke milliseconds.
+Parses a time string into milliseconds.
 
 ```javascript
 const oneHour = EasyCache.utils.parseTime('1h');     // 3600000
@@ -245,13 +305,13 @@ const fiveSeconds = EasyCache.utils.parseTime('5s'); // 5000
 Supported units: `ms`, `s`, `m`, `h`, `d`
 
 #### `EasyCache.utils.formatBytes(bytes)`
-Format bytes ke human readable string.
+Formats bytes into a human-readable string.
 
 ```javascript
 const formatted = EasyCache.utils.formatBytes(1024); // "1.00 KB"
 ```
 
-## 💡 Contoh Penggunaan
+## 💡 Examples
 
 ### 1. API Response Caching
 
@@ -262,7 +322,7 @@ async function fetchUserWithCache(userId) {
   return await cache.getOrSet(`user:${userId}`, async () => {
     const response = await fetch(`/api/users/${userId}`);
     return await response.json();
-  }, 600000); // Cache 10 menit
+  }, 600000); // Cache for 10 minutes
 }
 ```
 
@@ -285,7 +345,7 @@ async function getProductsWithCache(category) {
 ```javascript
 const sessionCache = new EasyCache({
   maxSize: 10000,
-  defaultTTL: EasyCache.utils.parseTime('1h') // 1 jam
+  defaultTTL: EasyCache.utils.parseTime('1h') // 1 hour
 });
 
 function createSession(userId, userData) {
@@ -294,7 +354,7 @@ function createSession(userId, userData) {
     userId,
     ...userData,
     createdAt: Date.now()
-  }, EasyCache.utils.parseTime('24h')); // Session 24 jam
+  }, EasyCache.utils.parseTime('24h')); // Session for 24 hours
   
   return sessionId;
 }
@@ -339,7 +399,7 @@ const configCache = new EasyCache({
 
 async function getConfig(key) {
   return await configCache.getOrSet(`config:${key}`, async () => {
-    // Fetch dari database atau file
+    // Fetch from database or file
     return await loadConfigFromSource(key);
   });
 }
@@ -356,13 +416,13 @@ function updateConfig(key, value) {
 ```javascript
 class MultiLayerCache {
   constructor() {
-    // L1: Fast cache dengan TTL pendek
+    // L1: Fast cache with short TTL
     this.l1Cache = new EasyCache({
       maxSize: 100,
       defaultTTL: EasyCache.utils.parseTime('1m')
     });
     
-    // L2: Slower cache dengan TTL lebih panjang
+    // L2: Slower cache with longer TTL
     this.l2Cache = new EasyCache({
       maxSize: 1000,
       defaultTTL: EasyCache.utils.parseTime('10m')
@@ -401,9 +461,79 @@ class MultiLayerCache {
 ### 1. Naming Conventions
 Gunakan namespace untuk keys:
 ```javascript
+## 🔧 Best Practices
+
+### 1. Naming Conventions
+Use namespaces for keys:
+```javascript
 cache.set('user:123', userData);
 cache.set('product:456', productData);
 cache.set('session:abc123', sessionData);
+```
+
+### 2. TTL Strategy
+- **Static data**: Long TTL (1-24 hours)
+- **Dynamic data**: Short TTL (1-15 minutes)
+- **Real-time data**: Very short TTL (10-60 seconds)
+
+```javascript
+// Static data
+cache.set('config:app', appConfig, EasyCache.utils.parseTime('1h'));
+
+// Dynamic data
+cache.set('user:profile:123', userProfile, EasyCache.utils.parseTime('5m'));
+
+// Real-time data
+cache.set('stock:price:AAPL', stockPrice, EasyCache.utils.parseTime('30s'));
+```
+
+### 3. Memory Management
+Monitor cache size and adjust maxSize:
+
+```javascript
+const cache = new EasyCache({ maxSize: 1000 });
+
+// Monitor stats periodically
+setInterval(() => {
+  const stats = cache.getStats();
+  console.log(`Cache: ${stats.size}/${cache.options.maxSize} items, Hit rate: ${(stats.hitRate * 100).toFixed(2)}%`);
+}, 60000);
+```
+
+### 4. Error Handling
+Always handle errors for cache operations:
+
+```javascript
+cache.on('error', (error) => {
+  console.error('Cache error:', error);
+  // Log to monitoring system
+});
+
+// Graceful fallback
+function getCachedData(key, fallbackFn) {
+  try {
+    const cached = cache.get(key);
+    if (cached !== undefined) {
+      return cached;
+    }
+  } catch (error) {
+    console.warn('Cache get error:', error);
+  }
+  
+  return fallbackFn();
+}
+```
+
+### 5. Cleanup
+Don't forget to clean up when the application shuts down:
+
+```javascript
+process.on('SIGINT', () => {
+  console.log('Shutting down...');
+  cache.destroy();
+  process.exit(0);
+});
+```
 ```
 
 ### 2. TTL Strategy
@@ -472,30 +602,30 @@ process.on('SIGINT', () => {
 
 ## 📊 Performance Tips
 
-1. **Optimal maxSize**: Set berdasarkan available memory
-2. **TTL tuning**: Balance antara hit rate dan data freshness
-3. **Key naming**: Gunakan key yang pendek tapi descriptive
-4. **Batch operations**: Gunakan `setMultiple`/`getMultiple` untuk efisiensi
-5. **Event listeners**: Jangan terlalu banyak listeners untuk performa optimal
+1. **Optimal maxSize**: Set based on available memory
+2. **TTL tuning**: Balance between hit rate and data freshness
+3. **Key naming**: Use short but descriptive keys
+4. **Batch operations**: Use `setMultiple`/`getMultiple` for efficiency
+5. **Event listeners**: Avoid too many listeners for optimal performance
 
 ## 🤝 Contributing
 
-1. Fork repository
-2. Buat feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push ke branch (`git push origin feature/amazing-feature`)
-5. Buat Pull Request
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## 📝 License
 
-MIT License - lihat file [LICENSE](LICENSE) untuk details.
+MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🔗 Links
 
-- [GitHub Repository](https://github.com/yourusername/easy-cache-js)
-- [NPM Package](https://www.npmjs.com/package/easy-cache-js)
-- [Issues](https://github.com/yourusername/easy-cache-js/issues)
+- [GitHub Repository](https://github.com/Cloud-Dark/eca.js)
+- [NPM Package](https://www.npmjs.com/package/eca.js)
+- [Issues](https://github.com/Cloud-Dark/eca.js/issues)
 
 ---
 
-Dibuat dengan ❤️ untuk komunitas Node.js Indonesia
+Made with ❤️ for the Node.js community
