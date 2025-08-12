@@ -14,10 +14,10 @@ An easy-to-use Node.js library for comprehensive cache management, featuring TTL
 - **Zero Dependencies** - No external libraries required
 - **Cache Tags/Groups** - Organize cache items with tags for group operations
 - **Sliding Expiration** - Extend TTL on access for frequently used items
-- **Stale-While-Revalidate** - Serve stale content while revalidating in background
 - **Enhanced Loader Function** - More flexible data loading with `getOrSet`
 - **Custom Serialization/Deserialization** - Define how data is transformed for storage
 - **Conditional Caching** - Cache items based on custom conditions
+- **Stale-While-Revalidate** - Serve stale content while revalidating in background
 
 ## 📦 Installation
 
@@ -48,12 +48,6 @@ cache.set('temp:data', 'temporary data', 10000); // Expires in 10 seconds
 ```
 
 ## 📖 API Documentation
-
-### Constructor Options
-
-## 📖 API Documentation
-
-### Constructor Options
 
 ### Constructor Options
 
@@ -164,12 +158,14 @@ const cache = new EasyCache({
 
 ### Basic Methods
 
-#### `set(key, value, ttl?)`
-Sets a value to the cache with an optional TTL.
+#### `set(key, value, ttl?, tags?, condition?)`
+Sets a value to the cache with an optional TTL, tags, and a caching condition.
 
 ```javascript
 cache.set('key', 'value');
 cache.set('key', 'value', 5000); // Expires in 5 seconds
+cache.set('key', 'value', null, ['user', 'active']); // Set with tags
+cache.set('key', 'value', null, [], (k, v) => v.status === 'active'); // Conditional caching
 ```
 
 #### `get(key)`
@@ -216,18 +212,17 @@ Gets all keys in the cache.
 console.log('All keys:', cache.keys());
 ```
 
-
-
 ### Advanced Methods
 
-#### `getOrSet(key, fn, ttl?)`
-Gets a value or sets it with a function if it doesn't exist.
+#### `getOrSet(key, fn, ttl?, loaderOptions?)`
+Gets a value or sets it with a function if it doesn't exist. `loaderOptions` are passed to the loader function.
 
 ```javascript
-const userData = await cache.getOrSet('user:123', async () => {
+const userData = await cache.getOrSet('user:123', async (options) => {
   // Fetch from database if not in cache
+  console.log('Loader options:', options);
   return await fetchUserFromDB(123);
-}, 300000); // Cache for 5 minutes
+}, 300000, { userId: 123 }); // Cache for 5 minutes
 ```
 
 #### `setMultiple(items, ttl?)`
@@ -252,6 +247,35 @@ Deletes multiple keys at once.
 
 ```javascript
 cache.deleteMultiple(['user:1', 'user:2']);
+```
+
+#### `setWithTags(key, value, ttl?, tags?)`
+Sets a cache value with associated tags.
+
+```javascript
+cache.setWithTags('product:1', { name: 'Laptop' }, null, ['electronics', 'computers']);
+```
+
+#### `getByTag(tag)`
+Gets all cache items associated with a specific tag.
+
+```javascript
+const electronics = await cache.getByTag('electronics');
+console.log(electronics); // { 'product:1': { name: 'Laptop' } }
+```
+
+#### `deleteByTag(tag)`
+Deletes all cache items associated with a specific tag.
+
+```javascript
+await cache.deleteByTag('electronics');
+```
+
+#### `clearByTag(tag)`
+Clears all cache items associated with a specific tag. (Alias for `deleteByTag`)
+
+```javascript
+await cache.clearByTag('computers');
 ```
 
 #### `touch(key, ttl)`
@@ -292,8 +316,18 @@ console.log(stats);
 //   deletes: 5,
 //   evictions: 2,
 //   size: 95,
-//   hitRate: 0.9375
+//   hitRate: 0.9375,
+//   totalAccesses: 160,
+//   totalExpired: 3
 // }
+```
+
+#### `getStatsByTag(tag)`
+Gets statistics for items associated with a specific tag.
+
+```javascript
+const tagStats = cache.getStatsByTag('user');
+console.log(tagStats); // { count: 5 }
 ```
 
 #### `resetStats()`
@@ -350,9 +384,23 @@ cache.on('error', (error) => {
 
 ### Utility Functions
 
-### Utility Functions
+#### `EasyCache.utils.parseTime(timeStr)`
+Parses a time string into milliseconds.
 
+```javascript
+const oneHour = EasyCache.utils.parseTime('1h');     // 3600000
+const thirtyMin = EasyCache.utils.parseTime('30m');  // 1800000
+const fiveSeconds = EasyCache.utils.parseTime('5s'); // 5000
+```
 
+Supported units: `ms`, `s`, `m`, `h`, `d`
+
+#### `EasyCache.utils.formatBytes(bytes)`
+Formats bytes into a human-readable string.
+
+```javascript
+const formatted = EasyCache.utils.formatBytes(1024); // "1.00 KB"
+```
 
 ## 💡 Examples
 
@@ -502,11 +550,6 @@ class MultiLayerCache {
 ## 🔧 Best Practices
 
 ### 1. Naming Conventions
-Gunakan namespace untuk keys:
-```javascript
-## 🔧 Best Practices
-
-### 1. Naming Conventions
 Use namespaces for keys:
 ```javascript
 cache.set('user:123', userData);
@@ -569,71 +612,6 @@ function getCachedData(key, fallbackFn) {
 
 ### 5. Cleanup
 Don't forget to clean up when the application shuts down:
-
-```javascript
-process.on('SIGINT', () => {
-  console.log('Shutting down...');
-  cache.destroy();
-  process.exit(0);
-});
-```
-```
-
-### 2. TTL Strategy
-- **Static data**: TTL panjang (1-24 jam)
-- **Dynamic data**: TTL pendek (1-15 menit)
-- **Real-time data**: TTL sangat pendek (10-60 second)
-
-```javascript
-// Static data
-cache.set('config:app', appConfig, EasyCache.utils.parseTime('1h'));
-
-// Dynamic data
-cache.set('user:profile:123', userProfile, EasyCache.utils.parseTime('5m'));
-
-// Real-time data
-cache.set('stock:price:AAPL', stockPrice, EasyCache.utils.parseTime('30s'));
-```
-
-### 3. Memory Management
-Monitor ukuran cache dan sesuaikan maxSize:
-
-```javascript
-const cache = new EasyCache({ maxSize: 1000 });
-
-// Monitor stats secara berkala
-setInterval(() => {
-  const stats = cache.getStats();
-  console.log(`Cache: ${stats.size}/${cache.options.maxSize} items, Hit rate: ${(stats.hitRate * 100).toFixed(2)}%`);
-}, 60000);
-```
-
-### 4. Error Handling
-Selalu handle error untuk operasi cache:
-
-```javascript
-cache.on('error', (error) => {
-  console.error('Cache error:', error);
-  // Log to monitoring system
-});
-
-// Graceful fallback
-function getCachedData(key, fallbackFn) {
-  try {
-    const cached = cache.get(key);
-    if (cached !== undefined) {
-      return cached;
-    }
-  } catch (error) {
-    console.warn('Cache get error:', error);
-  }
-  
-  return fallbackFn();
-}
-```
-
-### 5. Cleanup
-Jangan lupa cleanup saat aplikasi shutdown:
 
 ```javascript
 process.on('SIGINT', () => {
