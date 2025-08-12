@@ -26,12 +26,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/easy-cache-js.git"
+    "url": "https://github.com/Cloud-Dark/eca.js"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/easy-cache-js/issues"
+    "url": "https://github.com/Cloud-Dark/eca.js"
   },
-  "homepage": "https://github.com/yourusername/easy-cache-js#readme",
+  "homepage": "https://github.com/Cloud-Dark/eca.js#readme",
   "devDependencies": {
     "mocha": "^10.0.0",
     "chai": "^4.3.0"
