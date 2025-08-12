@@ -1,12 +1,12 @@
 {
-  "name": "easy-cache-js",
+  "name": "eca.js",
   "version": "1.0.0",
-  "description": "Library Node.js yang mudah digunakan untuk manajemen cache dengan fitur TTL, LRU eviction, dan event system",
-  "main": "easycache.js",
+  "description": "An easy-to-use Node.js library for cache management with TTL, LRU eviction, and event system.",
+  "main": "src/easycache.js",
   "scripts": {
-    "test": "node test.js",
-    "example": "node examples.js",
-    "start": "node examples.js"
+    "test": "node test/easycache.test.js",
+    "example": "node examples/basic.js",
+    "start": "node examples/basic.js"
   },
   "keywords": [
     "cache",
@@ -37,8 +37,9 @@
     "chai": "^4.3.0"
   },
   "files": [
-    "easycache.js",
-    "examples.js",
+    "src/",
+    "examples/",
+    "test/",
     "README.md",
     "LICENSE"
   ]

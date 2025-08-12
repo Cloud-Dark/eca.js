@@ -38,7 +38,7 @@ const user = cache.get('user:123');
 console.log(user); // { name: 'John', email: 'john@example.com' }
 
 // Set dengan TTL custom
-cache.set('temp:data', 'temporary data', 10000); // Expired dalam 10 detik
+cache.set('temp:data', 'temporary data', 10000); // Expired dalam 10 second
 ```
 
 ## 📖 API Documentation
@@ -61,7 +61,7 @@ Set nilai ke cache dengan optional TTL.
 
 ```javascript
 cache.set('key', 'value');
-cache.set('key', 'value', 5000); // Expired dalam 5 detik
+cache.set('key', 'value', 5000); // Expired dalam 5 second
 ```
 
 #### `get(key)`
@@ -409,7 +409,7 @@ cache.set('session:abc123', sessionData);
 ### 2. TTL Strategy
 - **Static data**: TTL panjang (1-24 jam)
 - **Dynamic data**: TTL pendek (1-15 menit)
-- **Real-time data**: TTL sangat pendek (10-60 detik)
+- **Real-time data**: TTL sangat pendek (10-60 second)
 
 ```javascript
 // Static data

@@ -1,19 +1,19 @@
-// examples.js - Contoh penggunaan EasyCache
+// examples/basic.js - EasyCache Usage Examples
 
-const EasyCache = require('./easycache');
+const EasyCache = require('../src/easycache');
 
 // 1. Basic Usage
 console.log('=== Basic Usage ===');
 const cache = new EasyCache({
   maxSize: 100,
-  defaultTTL: 5000 // 5 detik default TTL
+  defaultTTL: 5000 // 5 second default TTL
 });
 
-// Set nilai
+// Set value
 cache.set('user:123', { name: 'John', email: 'john@example.com' });
-cache.set('config', { theme: 'dark', lang: 'id' }, 10000); // TTL 10 detik
+cache.set('config', { theme: 'dark', lang: 'id' }, 10000); // TTL 10 second
 
-// Get nilai
+// Get value
 console.log('User:', cache.get('user:123'));
 console.log('Config:', cache.get('config'));
 
@@ -41,11 +41,11 @@ console.log('\n=== Advanced Features ===');
 // Get or Set pattern
 async function getUserData(userId) {
   return await cache.getOrSet(`user:${userId}`, async () => {
-    // Simulasi fetch dari database
+    // Simulate fetching from database
     console.log('📡 Fetching from database...');
     await new Promise(resolve => setTimeout(resolve, 100));
     return { id: userId, name: `User ${userId}`, active: true };
-  }, 30000); // Cache selama 30 detik
+  }, 30000); // Cache for 30 seconds
 }
 
 async function testGetOrSet() {
@@ -63,7 +63,7 @@ cache.setMultiple({
   'product:1': { name: 'Laptop', price: 15000000 },
   'product:2': { name: 'Mouse', price: 200000 },
   'product:3': { name: 'Keyboard', price: 500000 }
-}, 60000); // 1 menit TTL
+}, 60000); // 1 minute TTL
 
 // Get multiple
 const products = cache.getMultiple(['product:1', 'product:2', 'product:3']);
@@ -77,7 +77,7 @@ setTimeout(() => {
   console.log('Cache size:', cache.size());
   console.log('Cache keys:', cache.keys());
   
-  // Info untuk key tertentu
+  // Info for a specific key
   const userInfo = cache.getInfo('user:123');
   console.log('User info:', userInfo);
 }, 1000);
@@ -94,11 +94,11 @@ try {
 
 // 7. TTL Management
 console.log('\n=== TTL Management ===');
-cache.set('temp:data', 'This will expire soon', 3000); // 3 detik
+cache.set('temp:data', 'This will expire soon', 3000); // 3 second
 
 // Extend TTL
 setTimeout(() => {
-  cache.touch('temp:data', 5000); // Extend 5 detik lagi
+  cache.touch('temp:data', 5000); // Extend by another 5 seconds
   console.log('TTL extended for temp:data');
 }, 2000);
 
@@ -109,8 +109,8 @@ class ApiCache {
   constructor() {
     this.cache = new EasyCache({
       maxSize: 1000,
-      defaultTTL: 300000, // 5 menit default
-      checkInterval: 60000 // Cleanup setiap 1 menit
+      defaultTTL: 300000, // 5 minutes default
+      checkInterval: 60000 // Cleanup every 1 minute
     });
   }
 
@@ -141,10 +141,10 @@ class ApiCache {
 const apiCache = new ApiCache();
 
 async function testApiCache() {
-  // First call - akan fetch
+  // First call - will fetch
   console.log('First API call:', await apiCache.fetchWithCache('/users'));
   
-  // Second call - dari cache
+  // Second call - from cache
   console.log('Second API call:', await apiCache.fetchWithCache('/users'));
   
   // Different endpoint
@@ -159,7 +159,7 @@ testApiCache();
 console.log('\n=== Memory Management ===');
 
 const memoryCache = new EasyCache({
-  maxSize: 3, // Kecil untuk demo eviction
+  maxSize: 3, // Small for eviction demo
   defaultTTL: 0 // No expiration
 });
 
@@ -167,11 +167,11 @@ const memoryCache = new EasyCache({
 memoryCache.set('item1', 'First item');
 memoryCache.set('item2', 'Second item');
 memoryCache.set('item3', 'Third item');
-memoryCache.set('item4', 'Fourth item'); // Ini akan evict item1
+memoryCache.set('item4', 'Fourth item'); // This will evict item1
 
 console.log('After adding 4 items to cache with maxSize=3:');
 console.log('Keys:', memoryCache.keys());
-console.log('item1 exists:', memoryCache.has('item1')); // false, sudah di-evict
+console.log('item1 exists:', memoryCache.has('item1')); // false, already evicted
 console.log('item4 exists:', memoryCache.has('item4')); // true
 
 // 10. Error Handling
@@ -183,7 +183,7 @@ errorCache.on('error', (error) => {
   console.error('Cache error:', error.message);
 });
 
-// Cleanup setelah 10 detik
+// Cleanup after 10 seconds
 setTimeout(() => {
   console.log('\n🧹 Cleaning up...');
   cache.destroy();
