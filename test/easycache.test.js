@@ -161,6 +161,73 @@ async function runTests() {
   assert(await cache11.get('clear_test1') === undefined, 'Clear removes specific items');
   cache11.destroy();
   
+  // Test 12: Storage Adapters
+  console.log('\nTest 12: Storage Adapters');
+
+  // FileAdapter (Raw)
+  console.log('--- FileAdapter (Raw) ---');
+  const fileCache = new EasyCache({
+    storage: 'file',
+    storageOptions: {
+      filePath: './test_cache_files/test_raw_cache.dat'
+    }
+  });
+  await fileCache.set('file_key', 'file_value');
+  assert(await fileCache.get('file_key') === 'file_value', 'FileAdapter set/get works');
+  await fileCache.destroy();
+
+  // JsonAdapter
+  console.log('--- JsonAdapter ---');
+  const jsonCache = new EasyCache({
+    storage: 'json',
+    storageOptions: {
+      filePath: './test_cache_files/test_json_cache.json',
+      indent: 4
+    }
+  });
+  await jsonCache.set('json_key', { data: 'json_value', num: 123 });
+  assert(JSON.stringify(await jsonCache.get('json_key')) === JSON.stringify({ data: 'json_value', num: 123 }), 'JsonAdapter set/get works');
+  await jsonCache.destroy();
+
+  // RedisAdapter
+  console.log('--- RedisAdapter ---');
+  try {
+    const redisCache = new EasyCache({
+      storage: 'redis',
+      storageOptions: {
+        host: 'localhost',
+        port: 6379,
+        db: 1 // Use a different DB for testing
+      }
+    });
+    await redisCache.set('redis_key', 'redis_value');
+    assert(await redisCache.get('redis_key') === 'redis_value', 'RedisAdapter set/get works');
+    await redisCache.destroy();
+  } catch (error) {
+    console.warn('RedisAdapter tests skipped: ', error.message);
+  }
+
+  // PostgreSQLAdapter
+  console.log('--- PostgreSQLAdapter ---');
+  try {
+    const pgCache = new EasyCache({
+      storage: 'postgresql',
+      storageOptions: {
+        host: 'localhost',
+        port: 5432,
+        user: 'postgres',
+        password: 'mysecretpassword',
+        database: 'test_cache_db',
+        table: 'test_cache_table'
+      }
+    });
+    await pgCache.set('pg_key', 'pg_value');
+    assert(await pgCache.get('pg_key') === 'pg_value', 'PostgreSQLAdapter set/get works');
+    await pgCache.destroy();
+  } catch (error) {
+    console.warn('PostgreSQLAdapter tests skipped: ', error.message);
+  }
+  
   console.log('\n🎉 All tests passed!');
 }
 

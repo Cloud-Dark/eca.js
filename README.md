@@ -68,6 +68,98 @@ const cache = new EasyCache({
 });
 ```
 
+### Storage Adapters
+
+EasyCache supports various storage backends. You can configure the storage type and its specific options via the `storage` and `storageOptions` properties in the constructor.
+
+#### Memory Adapter (Default)
+Stores cache data in memory. Ideal for fast, temporary caching.
+
+```javascript
+const cache = new EasyCache({
+  storage: 'memory' // Default, no specific options needed
+});
+```
+
+#### File Adapter (Raw)
+Stores cache data in a single file as raw JSON. Useful for simple persistence.
+
+```javascript
+const cache = new EasyCache({
+  storage: 'file',
+  storageOptions: {
+    filePath: './cache.dat', // Path to the cache file (default: './cache.dat')
+    encoding: 'utf8'         // File encoding (default: 'utf8')
+  }
+});
+```
+
+#### JSON Adapter
+Stores cache data in a single file as pretty-printed JSON. Good for human-readable persistence.
+
+```javascript
+const cache = new EasyCache({
+  storage: 'json',
+  storageOptions: {
+    filePath: './cache.json', // Path to the JSON cache file (default: './cache.json')
+    indent: 2                // Indentation level for JSON (default: 2)
+  }
+});
+```
+
+#### Redis Adapter
+Connects to a Redis server for distributed and persistent caching. Requires `redis` package to be installed (`npm install redis`).
+
+```javascript
+const cache = new EasyCache({
+  storage: 'redis',
+  storageOptions: {
+    host: 'localhost',   // Redis server host (default: 'localhost')
+    port: 6379,          // Redis server port (default: 6379)
+    password: null,      // Redis password (optional)
+    db: 0,               // Redis database index (default: 0)
+    keyPrefix: 'cache:'  // Prefix for all cache keys in Redis (default: 'cache:')
+  }
+});
+```
+
+#### PostgreSQL Adapter
+Connects to a PostgreSQL database for robust and persistent caching. Requires `pg` package to be installed (`npm install pg`).
+
+```javascript
+const cache = new EasyCache({
+  storage: 'postgresql',
+  storageOptions: {
+    host: 'localhost',   // PostgreSQL host (default: 'localhost')
+    port: 5432,          // PostgreSQL port (default: 5432)
+    user: 'postgres',    // PostgreSQL user (default: 'postgres')
+    password: '',         // PostgreSQL password (default: '')
+    database: 'cache_db',// PostgreSQL database name (default: 'cache_db')
+    table: 'cache_store' // Table name for cache data (default: 'cache_store')
+  }
+});
+```
+
+#### Custom Adapter
+You can also provide your own custom storage adapter. It must implement `get`, `set`, `delete`, `clear`, `keys`, `size`, and `has` methods, all of which should return Promises.
+
+```javascript
+class MyCustomAdapter {
+  constructor(options) { /* ... */ }
+  async get(key) { /* ... */ }
+  async set(key, value) { /* ... */ }
+  async delete(key) { /* ... */ }
+  async clear() { /* ... */ }
+  async keys() { /* ... */ }
+  async size() { /* ... */ }
+  async has(key) { /* ... */ }
+}
+
+const cache = new EasyCache({
+  storage: new MyCustomAdapter({ /* options */ })
+});
+```
+
 ### Basic Methods
 
 #### `set(key, value, ttl?)`

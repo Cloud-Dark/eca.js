@@ -8,7 +8,7 @@ class JsonAdapter {
     this.filePath = options.filePath || './cache.json';
     this.indent = options.indent || 2;
     this.store = new Map();
-    this._loadFromFile();
+    this._ready = this._loadFromFile();
   }
   
   async _loadFromFile() {
@@ -34,10 +34,12 @@ class JsonAdapter {
   }
   
   async get(key) {
+    await this._ready;
     return this.store.get(key);
   }
   
   async set(key, value) {
+    await this._ready;
     this.store.set(key, value);
     await this._saveToFile();
     return true;

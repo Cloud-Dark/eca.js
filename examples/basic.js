@@ -192,3 +192,74 @@ setTimeout(() => {
   errorCache.destroy();
   process.exit(0);
 }, 10000);
+
+// 11. Storage Adapter Examples
+console.log('\n=== 11. Storage Adapter Examples ===');
+
+async function testStorageAdapters() {
+  // FileAdapter (Raw)
+  console.log('\n--- FileAdapter (Raw) ---');
+  const fileCache = new EasyCache({
+    storage: 'file',
+    storageOptions: {
+      filePath: './cache_files/my_raw_cache.dat'
+    }
+  });
+  await fileCache.set('file_key', 'file_value');
+  console.log('File Cache get:', await fileCache.get('file_key'));
+  await fileCache.destroy();
+
+  // JsonAdapter
+  console.log('\n--- JsonAdapter ---');
+  const jsonCache = new EasyCache({
+    storage: 'json',
+    storageOptions: {
+      filePath: './cache_files/my_json_cache.json',
+      indent: 4
+    }
+  });
+  await jsonCache.set('json_key', { data: 'json_value', num: 123 });
+  console.log('JSON Cache get:', await jsonCache.get('json_key'));
+  await jsonCache.destroy();
+
+  // RedisAdapter
+  console.log('\n--- RedisAdapter ---');
+  try {
+    const redisCache = new EasyCache({
+      storage: 'redis',
+      storageOptions: {
+        host: 'localhost',
+        port: 6379,
+        db: 0
+      }
+    });
+    await redisCache.set('redis_key', 'redis_value');
+    console.log('Redis Cache get:', await redisCache.get('redis_key'));
+    await redisCache.destroy();
+  } catch (error) {
+    console.warn('RedisAdapter test skipped: ', error.message);
+  }
+
+  // PostgreSQLAdapter
+  console.log('\n--- PostgreSQLAdapter ---');
+  try {
+    const pgCache = new EasyCache({
+      storage: 'postgresql',
+      storageOptions: {
+        host: 'localhost',
+        port: 5432,
+        user: 'postgres',
+        password: 'mysecretpassword',
+        database: 'test_cache_db',
+        table: 'my_cache_table'
+      }
+    });
+    await pgCache.set('pg_key', 'pg_value');
+    console.log('PostgreSQL Cache get:', await pgCache.get('pg_key'));
+    await pgCache.destroy();
+  } catch (error) {
+    console.warn('PostgreSQLAdapter test skipped: ', error.message);
+  }
+}
+
+testStorageAdapters();

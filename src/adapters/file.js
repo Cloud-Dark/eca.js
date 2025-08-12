@@ -8,7 +8,7 @@ class FileAdapter {
     this.filePath = options.filePath || './cache.dat';
     this.encoding = options.encoding || 'utf8';
     this.store = new Map();
-    this._loadFromFile();
+    this._ready = this._loadFromFile();
   }
   
   async _loadFromFile() {
@@ -35,10 +35,12 @@ class FileAdapter {
   }
   
   async get(key) {
+    await this._ready;
     return this.store.get(key);
   }
   
   async set(key, value) {
+    await this._ready;
     this.store.set(key, value);
     await this._saveToFile();
     return true;
