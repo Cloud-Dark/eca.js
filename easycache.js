@@ -1,5 +1,454 @@
 // easycache.js
 const EventEmitter = require('events');
+const fs = require('fs').promises;
+const path = require('path');
+
+// Storage Adapters
+class MemoryAdapter {
+  constructor() {
+    this.store = new Map();
+  }
+  
+  async get(key) {
+    return this.store.get(key);
+  }
+  
+  async set(key, value) {
+    this.store.set(key, value);
+    return true;
+  }
+  
+  async delete(key) {
+    return this.store.delete(key);
+  }
+  
+  async clear() {
+    this.store.clear();
+    return true;
+  }
+  
+  async keys() {
+    return Array.from(this.store.keys());
+  }
+  
+  async size() {
+    return this.store.size;
+  }
+  
+  async has(key) {
+    return this.store.has(key);
+  }
+}
+
+class FileAdapter {
+  constructor(options = {}) {
+    this.filePath = options.filePath || './cache.dat';
+    this.encoding = options.encoding || 'utf8';
+    this.store = new Map();
+    this._loadFromFile();
+  }
+  
+  async _loadFromFile() {
+    try {
+      const data = await fs.readFile(this.filePath, this.encoding);
+      const parsed = JSON.parse(data);
+      this.store = new Map(Object.entries(parsed));
+    } catch (error) {
+      // File doesn't exist or is invalid, start with empty store
+      this.store = new Map();
+    }
+  }
+  
+  async _saveToFile() {
+    try {
+      const dir = path.dirname(this.filePath);
+      await fs.mkdir(dir, { recursive: true });
+      
+      const data = JSON.stringify(Object.fromEntries(this.store));
+      await fs.writeFile(this.filePath, data, this.encoding);
+    } catch (error) {
+      throw new Error(`Failed to save cache to file: ${error.message}`);
+    }
+  }
+  
+  async get(key) {
+    return this.store.get(key);
+  }
+  
+  async set(key, value) {
+    this.store.set(key, value);
+    await this._saveToFile();
+    return true;
+  }
+  
+  async delete(key) {
+    const result = this.store.delete(key);
+    if (result) {
+      await this._saveToFile();
+    }
+    return result;
+  }
+  
+  async clear() {
+    this.store.clear();
+    await this._saveToFile();
+    return true;
+  }
+  
+  async keys() {
+    return Array.from(this.store.keys());
+  }
+  
+  async size() {
+    return this.store.size;
+  }
+  
+  async has(key) {
+    return this.store.has(key);
+  }
+}
+
+class JsonAdapter {
+  constructor(options = {}) {
+    this.filePath = options.filePath || './cache.json';
+    this.indent = options.indent || 2;
+    this.store = new Map();
+    this._loadFromFile();
+  }
+  
+  async _loadFromFile() {
+    try {
+      const data = await fs.readFile(this.filePath, 'utf8');
+      const parsed = JSON.parse(data);
+      this.store = new Map(Object.entries(parsed));
+    } catch (error) {
+      this.store = new Map();
+    }
+  }
+  
+  async _saveToFile() {
+    try {
+      const dir = path.dirname(this.filePath);
+      await fs.mkdir(dir, { recursive: true });
+      
+      const data = JSON.stringify(Object.fromEntries(this.store), null, this.indent);
+      await fs.writeFile(this.filePath, data, 'utf8');
+    } catch (error) {
+      throw new Error(`Failed to save cache to JSON: ${error.message}`);
+    }
+  }
+  
+  async get(key) {
+    return this.store.get(key);
+  }
+  
+  async set(key, value) {
+    this.store.set(key, value);
+    await this._saveToFile();
+    return true;
+  }
+  
+  async delete(key) {
+    const result = this.store.delete(key);
+    if (result) {
+      await this._saveToFile();
+    }
+    return result;
+  }
+  
+  async clear() {
+    this.store.clear();
+    await this._saveToFile();
+    return true;
+  }
+  
+  async keys() {
+    return Array.from(this.store.keys());
+  }
+  
+  async size() {
+    return this.store.size;
+  }
+  
+  async has(key) {
+    return this.store.has(key);
+  }
+}
+
+class RedisAdapter {
+  constructor(options = {}) {
+    this.options = {
+      host: options.host || 'localhost',
+      port: options.port || 6379,
+      password: options.password || null,
+      db: options.db || 0,
+      keyPrefix: options.keyPrefix || 'cache:',
+      ...options
+    };
+    
+    this.client = null;
+    this._connected = false;
+    this._connect();
+  }
+  
+  async _connect() {
+    try {
+      // Lazy load redis (optional dependency)
+      const Redis = require('redis');
+      
+      this.client = Redis.createClient({
+        socket: {
+          host: this.options.host,
+          port: this.options.port
+        },
+        password: this.options.password,
+        database: this.options.db
+      });
+      
+      await this.client.connect();
+      this._connected = true;
+    } catch (error) {
+      throw new Error(`Redis connection failed: ${error.message}. Make sure to install redis: npm install redis`);
+    }
+  }
+  
+  _getKey(key) {
+    return `${this.options.keyPrefix}${key}`;
+  }
+  
+  async get(key) {
+    if (!this._connected) await this._connect();
+    
+    try {
+      const result = await this.client.get(this._getKey(key));
+      return result ? JSON.parse(result) : undefined;
+    } catch (error) {
+      return undefined;
+    }
+  }
+  
+  async set(key, value) {
+    if (!this._connected) await this._connect();
+    
+    try {
+      await this.client.set(this._getKey(key), JSON.stringify(value));
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+  
+  async delete(key) {
+    if (!this._connected) await this._connect();
+    
+    try {
+      const result = await this.client.del(this._getKey(key));
+      return result > 0;
+    } catch (error) {
+      return false;
+    }
+  }
+  
+  async clear() {
+    if (!this._connected) await this._connect();
+    
+    try {
+      const keys = await this.client.keys(`${this.options.keyPrefix}*`);
+      if (keys.length > 0) {
+        await this.client.del(keys);
+      }
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+  
+  async keys() {
+    if (!this._connected) await this._connect();
+    
+    try {
+      const redisKeys = await this.client.keys(`${this.options.keyPrefix}*`);
+      return redisKeys.map(key => key.replace(this.options.keyPrefix, ''));
+    } catch (error) {
+      return [];
+    }
+  }
+  
+  async size() {
+    const allKeys = await this.keys();
+    return allKeys.length;
+  }
+  
+  async has(key) {
+    if (!this._connected) await this._connect();
+    
+    try {
+      const result = await this.client.exists(this._getKey(key));
+      return result > 0;
+    } catch (error) {
+      return false;
+    }
+  }
+  
+  async disconnect() {
+    if (this.client && this._connected) {
+      await this.client.disconnect();
+      this._connected = false;
+    }
+  }
+}
+
+class PostgreSQLAdapter {
+  constructor(options = {}) {
+    this.options = {
+      host: options.host || 'localhost',
+      port: options.port || 5432,
+      user: options.user || 'postgres',
+      password: options.password || '',
+      database: options.database || 'cache_db',
+      table: options.table || 'cache_store',
+      ...options
+    };
+    
+    this.client = null;
+    this._connected = false;
+    this._connect();
+  }
+  
+  async _connect() {
+    try {
+      // Lazy load pg (optional dependency)
+      const { Client } = require('pg');
+      
+      this.client = new Client({
+        host: this.options.host,
+        port: this.options.port,
+        user: this.options.user,
+        password: this.options.password,
+        database: this.options.database
+      });
+      
+      await this.client.connect();
+      await this._createTable();
+      this._connected = true;
+    } catch (error) {
+      throw new Error(`PostgreSQL connection failed: ${error.message}. Make sure to install pg: npm install pg`);
+    }
+  }
+  
+  async _createTable() {
+    const query = `
+      CREATE TABLE IF NOT EXISTS ${this.options.table} (
+        key VARCHAR(255) PRIMARY KEY,
+        value JSONB NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+    
+    await this.client.query(query);
+  }
+  
+  async get(key) {
+    if (!this._connected) await this._connect();
+    
+    try {
+      const result = await this.client.query(
+        `SELECT value FROM ${this.options.table} WHERE key = $1`,
+        [key]
+      );
+      
+      return result.rows.length > 0 ? result.rows[0].value : undefined;
+    } catch (error) {
+      return undefined;
+    }
+  }
+  
+  async set(key, value) {
+    if (!this._connected) await this._connect();
+    
+    try {
+      await this.client.query(
+        `INSERT INTO ${this.options.table} (key, value, updated_at) 
+         VALUES ($1, $2, CURRENT_TIMESTAMP)
+         ON CONFLICT (key) 
+         DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP`,
+        [key, JSON.stringify(value)]
+      );
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+  
+  async delete(key) {
+    if (!this._connected) await this._connect();
+    
+    try {
+      const result = await this.client.query(
+        `DELETE FROM ${this.options.table} WHERE key = $1`,
+        [key]
+      );
+      return result.rowCount > 0;
+    } catch (error) {
+      return false;
+    }
+  }
+  
+  async clear() {
+    if (!this._connected) await this._connect();
+    
+    try {
+      await this.client.query(`DELETE FROM ${this.options.table}`);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+  
+  async keys() {
+    if (!this._connected) await this._connect();
+    
+    try {
+      const result = await this.client.query(`SELECT key FROM ${this.options.table}`);
+      return result.rows.map(row => row.key);
+    } catch (error) {
+      return [];
+    }
+  }
+  
+  async size() {
+    if (!this._connected) await this._connect();
+    
+    try {
+      const result = await this.client.query(`SELECT COUNT(*) as count FROM ${this.options.table}`);
+      return parseInt(result.rows[0].count);
+    } catch (error) {
+      return 0;
+    }
+  }
+  
+  async has(key) {
+    if (!this._connected) await this._connect();
+    
+    try {
+      const result = await this.client.query(
+        `SELECT 1 FROM ${this.options.table} WHERE key = $1`,
+        [key]
+      );
+      return result.rows.length > 0;
+    } catch (error) {
+      return false;
+    }
+  }
+  
+  async disconnect() {
+    if (this.client && this._connected) {
+      await this.client.end();
+      this._connected = false;
+    }
+  }
+}
 
 class EasyCache extends EventEmitter {
   constructor(options = {}) {
@@ -10,10 +459,15 @@ class EasyCache extends EventEmitter {
       defaultTTL: options.defaultTTL || 0, // 0 = no expiration
       checkInterval: options.checkInterval || 60000, // 60 seconds
       enableStats: options.enableStats !== false,
+      storage: options.storage || 'memory',
+      storageOptions: options.storageOptions || {},
       ...options
     };
     
-    this.cache = new Map();
+    // Initialize storage adapter
+    this._initializeStorage();
+    
+    this.cache = new Map(); // Memory layer for TTL and metadata
     this.timers = new Map();
     this.accessOrder = new Map(); // untuk LRU
     this.stats = {
@@ -32,6 +486,36 @@ class EasyCache extends EventEmitter {
     }
   }
 
+  _initializeStorage() {
+    const { storage, storageOptions } = this.options;
+    
+    switch (storage.toLowerCase()) {
+      case 'memory':
+        this.storage = new MemoryAdapter(storageOptions);
+        break;
+      case 'file':
+        this.storage = new FileAdapter(storageOptions);
+        break;
+      case 'json':
+        this.storage = new JsonAdapter(storageOptions);
+        break;
+      case 'redis':
+        this.storage = new RedisAdapter(storageOptions);
+        break;
+      case 'postgresql':
+      case 'postgres':
+        this.storage = new PostgreSQLAdapter(storageOptions);
+        break;
+      default:
+        if (typeof storage === 'object' && storage.get && storage.set) {
+          // Custom adapter
+          this.storage = storage;
+        } else {
+          throw new Error(`Unsupported storage type: ${storage}`);
+        }
+    }
+  }
+
   /**
    * Set cache value
    * @param {string} key - Cache key
@@ -39,11 +523,11 @@ class EasyCache extends EventEmitter {
    * @param {number} ttl - Time to live in milliseconds
    * @returns {boolean} Success status
    */
-  set(key, value, ttl = null) {
+  async set(key, value, ttl = null) {
     try {
       // Check if we need to evict items (LRU)
       if (this.cache.size >= this.options.maxSize && !this.cache.has(key)) {
-        this._evictLRU();
+        await this._evictLRU();
       }
 
       // Clear existing timer if exists
@@ -56,9 +540,11 @@ class EasyCache extends EventEmitter {
       const effectiveTTL = ttl !== null ? ttl : this.options.defaultTTL;
       const expiresAt = effectiveTTL > 0 ? Date.now() + effectiveTTL : null;
 
-      // Store value
+      // Store value in external storage
+      await this.storage.set(key, value);
+
+      // Store metadata in memory
       const cacheItem = {
-        value,
         createdAt: Date.now(),
         expiresAt,
         accessCount: 0
@@ -69,8 +555,8 @@ class EasyCache extends EventEmitter {
 
       // Set expiration timer if needed
       if (effectiveTTL > 0) {
-        const timer = setTimeout(() => {
-          this.delete(key);
+        const timer = setTimeout(async () => {
+          await this.delete(key);
           this.emit('expired', key, value);
         }, effectiveTTL);
         this.timers.set(key, timer);
@@ -93,7 +579,7 @@ class EasyCache extends EventEmitter {
    * @param {string} key - Cache key
    * @returns {*} Cache value or undefined
    */
-  get(key) {
+  async get(key) {
     try {
       const item = this.cache.get(key);
       
@@ -106,7 +592,19 @@ class EasyCache extends EventEmitter {
 
       // Check if expired
       if (item.expiresAt && Date.now() > item.expiresAt) {
-        this.delete(key);
+        await this.delete(key);
+        if (this.options.enableStats) {
+          this.stats.misses++;
+        }
+        return undefined;
+      }
+
+      // Get value from storage
+      const value = await this.storage.get(key);
+      if (value === undefined) {
+        // Storage inconsistency, remove from memory cache
+        this.cache.delete(key);
+        this.accessOrder.delete(key);
         if (this.options.enableStats) {
           this.stats.misses++;
         }
@@ -121,10 +619,13 @@ class EasyCache extends EventEmitter {
         this.stats.hits++;
       }
 
-      this.emit('get', key, item.value);
-      return item.value;
+      this.emit('get', key, value);
+      return value;
     } catch (error) {
       this.emit('error', error);
+      if (this.options.enableStats) {
+        this.stats.misses++;
+      }
       return undefined;
     }
   }
@@ -134,17 +635,29 @@ class EasyCache extends EventEmitter {
    * @param {string} key - Cache key
    * @returns {boolean}
    */
-  has(key) {
+  async has(key) {
     const item = this.cache.get(key);
     if (!item) return false;
     
     // Check if expired
     if (item.expiresAt && Date.now() > item.expiresAt) {
-      this.delete(key);
+      await this.delete(key);
       return false;
     }
     
-    return true;
+    // Double check with storage
+    try {
+      const hasInStorage = await this.storage.has(key);
+      if (!hasInStorage) {
+        // Storage inconsistency, remove from memory
+        this.cache.delete(key);
+        this.accessOrder.delete(key);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      return false;
+    }
   }
 
   /**
@@ -152,12 +665,23 @@ class EasyCache extends EventEmitter {
    * @param {string} key - Cache key
    * @returns {boolean} Success status
    */
-  delete(key) {
+  async delete(key) {
     try {
       const existed = this.cache.has(key);
+      let value = null;
       
       if (existed) {
-        const item = this.cache.get(key);
+        // Get value before deleting for event
+        try {
+          value = await this.storage.get(key);
+        } catch (error) {
+          // Ignore error when getting value for event
+        }
+        
+        // Remove from storage
+        await this.storage.delete(key);
+        
+        // Remove from memory
         this.cache.delete(key);
         this.accessOrder.delete(key);
         
@@ -170,7 +694,7 @@ class EasyCache extends EventEmitter {
           this.stats.deletes++;
         }
 
-        this.emit('delete', key, item.value);
+        this.emit('delete', key, value);
       }
 
       return existed;
@@ -183,13 +707,17 @@ class EasyCache extends EventEmitter {
   /**
    * Clear all cache
    */
-  clear() {
+  async clear() {
     try {
+      // Clear storage
+      await this.storage.clear();
+      
       // Clear all timers
       for (const timer of this.timers.values()) {
         clearTimeout(timer);
       }
       
+      // Clear memory structures
       this.cache.clear();
       this.timers.clear();
       this.accessOrder.clear();
@@ -204,16 +732,24 @@ class EasyCache extends EventEmitter {
    * Get cache size
    * @returns {number}
    */
-  size() {
-    return this.cache.size;
+  async size() {
+    try {
+      return await this.storage.size();
+    } catch (error) {
+      return this.cache.size;
+    }
   }
 
   /**
    * Get all cache keys
    * @returns {Array<string>}
    */
-  keys() {
-    return Array.from(this.cache.keys());
+  async keys() {
+    try {
+      return await this.storage.keys();
+    } catch (error) {
+      return Array.from(this.cache.keys());
+    }
   }
 
   /**
@@ -250,11 +786,11 @@ class EasyCache extends EventEmitter {
    */
   async getOrSet(key, fn, ttl = null) {
     try {
-      let value = this.get(key);
+      let value = await this.get(key);
       
       if (value === undefined) {
         value = await fn();
-        this.set(key, value, ttl);
+        await this.set(key, value, ttl);
       }
       
       return value;
@@ -269,10 +805,11 @@ class EasyCache extends EventEmitter {
    * @param {Object} items - Key-value pairs
    * @param {number} ttl - Time to live
    */
-  setMultiple(items, ttl = null) {
-    for (const [key, value] of Object.entries(items)) {
-      this.set(key, value, ttl);
-    }
+  async setMultiple(items, ttl = null) {
+    const promises = Object.entries(items).map(([key, value]) => 
+      this.set(key, value, ttl)
+    );
+    await Promise.all(promises);
   }
 
   /**
@@ -280,8 +817,27 @@ class EasyCache extends EventEmitter {
    * @param {Array<string>} keys - Array of keys
    * @returns {Object} Key-value pairs
    */
-  getMultiple(keys) {
+  async getMultiple(keys) {
     const result = {};
+    const promises = keys.map(async (key) => {
+      const value = await this.get(key);
+      if (value !== undefined) {
+        result[key] = value;
+      }
+    });
+    
+    await Promise.all(promises);
+    return result;
+  }
+
+  /**
+   * Delete multiple keys
+   * @param {Array<string>} keys - Array of keys
+   */
+  async deleteMultiple(keys) {
+    const promises = keys.map(key => this.delete(key));
+    await Promise.all(promises);
+  } = {};
     for (const key of keys) {
       const value = this.get(key);
       if (value !== undefined) {
